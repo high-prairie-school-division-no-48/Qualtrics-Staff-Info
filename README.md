@@ -3,13 +3,13 @@
 This project will handle API calls to import essential staff information from Active Directory into Qualtrics.
 
 Fields:
-  a. First name
-  b. Last name
-  c. Email
-  d. Employee ID (used as unique identifier when cross-referencing between Qualtrics and Active Directory)
-  e. Primary location
-  f. Job title
-  g. Description (any additional info extracted from Active Directory)
+_ a. First name
+_ b. Last name
+_ c. Email
+_ d. Employee ID (used as unique identifier when cross-referencing between Qualtrics and Active Directory)
+_ e. Primary location
+_f. Job title
+_g. Description (any additional info extracted from Active Directory)
 
 # Main Components
 1. Job Scheduler - Service that currently acts as a user agent that is used to run scripts on a user configured schedule
