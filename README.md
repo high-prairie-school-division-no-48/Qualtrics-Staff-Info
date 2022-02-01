@@ -3,7 +3,7 @@
 This project will handle API calls to import essential staff information from Active Directory into Qualtrics.
 
 # Main Components
-1. Job Scheduler - Service that currently acts as a user agent that is used to run scripts on a user configured schedule
+1. Job Scheduler - Service that currently acts as a user agent to run scripts on a user configured schedule
 2. AD_Pull.ps1 - PowerShell script that retrieves all the essential staff data from Active Directory
 3. qualtricsStaffInfo.py - Python script that retrieves all contacts from a specified Qualtrics directory and compares their details to their entry in the Active Directory list 
 
