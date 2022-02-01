@@ -13,7 +13,6 @@ This project will handle API calls to import essential staff information from Ac
 3. Job Scheduler then runs qualtricsStaffInfo.py at 6:15 am to see which contacts need to be added, removed, or modified.
 
 ![image](https://user-images.githubusercontent.com/87395701/151998201-25346edf-d2fc-47d8-b274-9c8eb53dfc4f.png)
-
 Fields:
 - First name
 - Last name
