@@ -1,9 +1,10 @@
 ##
 # qualtricsStaffInfo.py
+# Paolo Reyes
 # HPSD
 #
 # This file is responsible for the initial import and maintenance of staff data into the Qualtrics database. The script sources the
-# staff data through an active directory export file on a daily basis to ensure the Qualtrics directory is consistently up to date.
+# staff data from an active directory export file that is ran on a daily basis to ensure the Qualtrics directory is consistently up to date.
 #
 # Methods:
 #
@@ -62,25 +63,22 @@ import openpyxl
 import threading
 from threading import Semaphore
 import csv
-import os
 
 ################################# GLOBAL VARIABLES #########################################
 
-#logFile = open(str(time.strftime("%Y-%m-%d")) + " Log File.txt", "w")
-logFile = open(os.path.dirname(os.path.abspath(__file__)) + "\\" + str(time.strftime("%Y-%m-%d")) + " Log File.txt", "w")
+logFile = open(str(time.strftime("%Y-%m-%d")) + " Log File.txt", "w") #log file created in same location as script
 totalImported = 0
 screenlock = Semaphore(value=1)
 
-DATA_CENTER = "ca1"
-#DIRECTORY = "POOL_3RpUbSnNvNX1uDX" test
-DIRECTORY = "POOL_9mJ7nNZtU7l8hep"
+DATA_CENTER = "" #datacenter is found in your Account Settings and is 2-3 letters and a number
+DIRECTORY = "" #directory id for which you are creating/updating contacts for
 
 ################################# IMPORT AD STAFF #########################################
 
 def importADStaff():
     global totalImported
     global logFile
-    allStaff = readADExport("C:\\Users\\vreyes\\source\\repos\\qualtricsStaffInfo\\qualtricsStaffInfo\\AD - Initial Staff Dump.xlsx")
+    allStaff = readADExport("PATH OF ACTIVE DIRECTORY STAFF EXPORT FILE")
     bearerToken = getQualtricsBearer()
     splitDump = list(split(allStaff, 8)) #run in parallel using 8 threads
 
@@ -107,7 +105,7 @@ def loopThroughChunk(bearerToken, chunk):
 ################################# MAINTAIN AD STAFF #########################################
 
 def updateADStaff():
-    adList = readADExportCSV("\\\\lscfil04\\tec\\_Scripts\\_Library\\Powershell\\PowershellAD_Output\\AD_Output.csv")
+    adList = readADExportCSV("PATH OF ACTIVE DIRECTORY STAFF EXPORT FILE")
     bearerToken = getQualtricsBearer()
 
     qList = getAllContacts(bearerToken)
@@ -193,8 +191,6 @@ def formatContact(bearerToken, contactId, adList): #retrieves qualtrics contact 
             embeddedData['Site'] = ''
         if 'Description' not in embeddedData:
             embeddedData['Description'] = ''
-        if 'Site Code' not in embeddedData:
-            embeddedData['Site Code'] = ''
         contactDetails = [firstName, lastName, email, phone, extRef, embeddedData]
         contactDetails = ["" if value == None else value for value in contactDetails]
         compareContactToAD(bearerToken, contactDetails, adList, contactId)
@@ -211,13 +207,12 @@ def compareContactToAD(bearerToken, contactDetails, adList, contactId):
     qTitle = contactDetails[5]['Title']
     qSite = contactDetails[5]['Site']
     qDescription = contactDetails[5]['Description']
-    qSiteCode = contactDetails[5]['Site Code']
 
     found = False
 
     for adEntry in adList:
         adExtRef = str(adEntry[7])
-        if qExtRef == adExtRef and qExtRef != "" : #found entry in qualtrics
+        if qExtRef == adExtRef: #found entry in qualtrics
             found = True
             adFirstName = adEntry[2]
             adLastName = adEntry[1]
@@ -225,11 +220,10 @@ def compareContactToAD(bearerToken, contactDetails, adList, contactId):
             adPhone = adEntry[6]
             adTitle = adEntry[5]
             adSite = adEntry[3]
-            adSiteCode = schoolCodeToNum(adSite)
             adDescription = adEntry[0]
             newDetails = [adFirstName, adLastName, adEmail, adPhone, adExtRef, adTitle, adSite, adDescription]
             #check for changes between Qualtrics and AD details
-            if adFirstName != qFirstName or adLastName != qLastName or adEmail != qEmail or adPhone != qPhone or adTitle != qTitle or adSite != qSite or adDescription != qDescription or qSiteCode != adSiteCode:
+            if adFirstName != qFirstName or adLastName != qLastName or adEmail != qEmail or adPhone != qPhone or adTitle != qTitle or adSite != qSite or adDescription != qDescription:
                 updateContact(bearerToken, newDetails, contactId)
             else: #no changes required
                 screenlock.acquire()
@@ -246,17 +240,14 @@ def compareContactToAD(bearerToken, contactDetails, adList, contactId):
 
 def getQualtricsBearer():
     #create the Base64 encoded basic authorization string
-    clientId="7e8b82e16177d0bae874db728e2c8f2c"
-    clientSecret="B5FogN2xeJCsf5LpHhj10CoPdPuih8Yl0xnTwBvuUF8dsaWovzJdg6g1cmbvGRsL"
+    clientId="UNIQUE OAUTH CLIENT ID"
+    clientSecret="UNIQUE OAUTH CLIENT SECRET KEY"
+
     baseURL = "https://{0}.qualtrics.com/oauth2/token".format(DATA_CENTER) 
     data = {'grant_type': 'client_credentials','scope': 'manage:all'}
-    try:
-        r = requests.post(baseURL, auth=(clientId, clientSecret), data=data)
-        return r.json()['access_token']
-    except:
-        getQualtricsBearer()
-
     
+    r = requests.post(baseURL, auth=(clientId, clientSecret), data=data)
+    return r.json()['access_token']
 
 
 def getAllContacts(bearerToken):
@@ -350,7 +341,6 @@ def updateContact(bearerToken, staffDetails, contactId):
         "extRef": str(staffDetails[4]),
         "embeddedData" : {"Title": staffDetails[5],
                             "Site": staffDetails[6],
-                            "Site Code": schoolCodeToNum(staffDetails[6]),
                             "Description": staffDetails[7],
                             "Last Modified": time.strftime("%Y-%m-%d %H:%M")},
         "language": "",
@@ -398,7 +388,7 @@ def deleteContact(bearerToken, contactId, staffDetails):
                 print("Attempting to retry import call for: ", staffDetails[0], staffDetails[1], file=logFile)
                 deleteContact(bearerToken, contactId, staffDetails)
                 return
-        else:
+        else: #generic API error, retry call
             time.sleep(5)
             deleteContact(bearerToken, contactId, staffDetails)
     else: #successful API call
@@ -443,16 +433,6 @@ def getContact(bearerToken, extRef):
 
 
 ################################# HELPERS #########################################
-def schoolCodeToNum(schoolName):
-    schoolCodes = {"RMS": "1616", "LSO": "0375","JOU":"1610" ,"GPV":"1602","EGW":"1614" , "PRS":"1607",
-                 "PVO":"0435", "CJS":"1615", "HPE":"1608", "KIN":"1611", "ERS":"1635", "EWP": "1606", "CEN":"1220", "TRA":"1220", "LSC":"1220","FAC":"1220", "TEC":"1220"}
-    
-    try:
-        print(schoolCodes[schoolName])
-        return schoolCodes[schoolName]
-    except:
-        return ""
-
 
 def readADExport(path):
     wb = load_workbook(path)
@@ -480,4 +460,3 @@ def run():
 #importADStaff()
 #updateADStaff()
 run()
-
